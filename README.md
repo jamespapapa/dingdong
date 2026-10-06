@@ -4,6 +4,8 @@
 
 dots와 업무를 설정하고, 반복할 수 있는 절차로 만들고, 실제 실행에서 배운 것을 다음 작업에 남깁니다. 사용자가 소유하는 단일 워크스페이스를 위한 오픈소스 MVP입니다.
 
+Owner instance: [Dingdong](https://dingdong-production-6648.up.railway.app) · MCP: `https://dingdong-production-6648.up.railway.app/mcp` (OAuth required).
+
 ## What works
 
 - 프로젝트별 영속 기억: 출처, 확정/후보 상태, 유효 기간, 대체 이력, 잊기, JSON 내보내기.

@@ -1,0 +1,23 @@
+{
+  "verifiedAt": "2026-10-06T03:30:59.701339+00:00",
+  "deployment": "https://dingdong-production-6648.up.railway.app",
+  "deploymentId": "01667413-a995-47f1-befe-e1ec59fcfa3b",
+  "openclaw": {
+    "mode": "openclaw",
+    "ready": true,
+    "version": "2026.9.7",
+    "error": null
+  },
+  "persistentVolume": {
+    "mount": "/data",
+    "sameMemoryId": true,
+    "sameRevision": true,
+    "sameContentHash": true,
+    "beforeRestart": "2026-10-06T03:24:36.086686+00:00"
+  },
+  "remoteOAuthPkce": true,
+  "remoteAuthenticatedMcpThroughOpenClaw": true,
+  "verificationTokensRevoked": true,
+  "personalDotsAccount": false,
+  "scope": "Cloud protocol verification and volume persistence. ChatGPT personal plugin reached owner consent; personal dot tool execution is pending."
+}

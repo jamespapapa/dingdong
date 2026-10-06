@@ -76,6 +76,7 @@ test("memory → setup → execution → review → improvement, with keyboard a
   await page.screenshot({
     path: `artifacts/memory-${info.project.name}.png`,
     fullPage: true,
+    animations: "disabled",
   });
   await page
     .getByRole("button", { name: "워크스페이스", exact: false })
@@ -84,6 +85,7 @@ test("memory → setup → execution → review → improvement, with keyboard a
   await page.screenshot({
     path: `artifacts/workspace-${info.project.name}.png`,
     fullPage: true,
+    animations: "disabled",
   });
   await page.getByRole("button", { name: "dots 연결", exact: false }).click();
   await expect(

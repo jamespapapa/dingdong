@@ -58,6 +58,8 @@ Open <http://127.0.0.1:5490>. Sign in using `DINGDONG_ADMIN_KEY` from the genera
 
 ## Connect your GPT dots
 
+ChatGPT connects to Dingdong through **OAuth authorization code + PKCE (S256)**. Dingdong issues a scoped access token after owner sign-in and consent, and ChatGPT uses that token for MCP requests. The owner key is used only on Dingdong's own sign-in screen; it is not an OpenAI API key and cannot authenticate MCP requests. This connection does not require an OpenAI API key.
+
 1. Deploy at a stable HTTPS origin with a persistent volume.
 2. In ChatGPT **Plugins → Add custom MCP server**, enter `https://YOUR_HOST/mcp` and choose **OAuth**. Use dynamic client registration; no client secret is needed.
 3. On the Dingdong consent screen, enter that instance's owner key. Select the projects and tool permissions to share. Enable project creation only if you want dots to set up new projects.

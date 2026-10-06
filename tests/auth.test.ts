@@ -33,6 +33,11 @@ test("OAuth PKCE + discovery + MCP auth + refresh rotation + owner CSRF protecti
     assert.equal((await fetch(base + "/api/snapshot")).status, 401);
     const denied = await post("/mcp", {});
     assert.equal(denied.status, 401);
+    assert.equal(
+      (await post("/mcp", {}, { Authorization: `Bearer ${key}` })).status,
+      401,
+      "The owner key must never substitute for an OAuth MCP access token",
+    );
     assert.match(denied.headers.get("www-authenticate")!, /resource_metadata/);
     const meta = await (
       await fetch(base + "/.well-known/oauth-authorization-server")

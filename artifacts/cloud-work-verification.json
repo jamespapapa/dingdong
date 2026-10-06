@@ -1,0 +1,25 @@
+{
+  "at": "2026-10-06T04:31:45.915Z",
+  "deployment": "8096b39c-7de9-4df2-ab02-447c013df3b4",
+  "implementationCommit": "f25072f14332299aab9fa4ccc2cb0c2d312dcba3",
+  "https": "https://dingdong-production-6648.up.railway.app",
+  "version": "0.2.0",
+  "actualOpenClaw": "2026.9.7",
+  "ownerApiThroughGateway": true,
+  "workContextReceipt": true,
+  "exactInputHash": true,
+  "legacyPendingReviewPreservedAndBlocksNewTrial": true,
+  "legacyArtifactBodyAndHashReadback": true,
+  "unauthenticatedMcpDenied": true,
+  "newUiBundleServed": true,
+  "preservedRecords": {
+    "projects": 1,
+    "memories": 1,
+    "workflows": 1,
+    "runs": 1,
+    "feedback": 0
+  },
+  "unchangedRecordHashes": true,
+  "newBusinessRecordsCreatedByVerification": 0,
+  "personalDotsAccount": false
+}

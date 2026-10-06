@@ -1,0 +1,13 @@
+{
+  "id": "dingdong",
+  "name": "Dingdong",
+  "description": "Persistent work memory and versioned automation tools.",
+  "categories": ["productivity"],
+  "contracts": { "tools": ["dingdong_tool"] },
+  "activation": { "onStartup": true },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

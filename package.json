@@ -1,0 +1,38 @@
+{
+  "name": "dingdong",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Persistent work memory and automation tools for GPT dots, powered by OpenClaw.",
+  "engines": {
+    "node": ">=24.16.0"
+  },
+  "scripts": {
+    "dev": "tsx server/index.ts",
+    "build": "tsc --noEmit && vite build",
+    "start": "tsx server/index.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "test:openclaw": "tsx scripts/verify-openclaw.ts",
+    "setup": "tsx scripts/setup.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "express": "5.1.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "zod": "3.25.76",
+    "tsx": "4.20.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/express": "5.0.3",
+    "@types/node": "24.9.1",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@vitejs/plugin-react": "5.0.4",
+    "typescript": "5.9.3",
+    "vite": "7.1.12"
+  }
+}

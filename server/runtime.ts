@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import type { Operation } from "./core.ts";
 import { AppError, Core } from "./core.ts";
@@ -78,8 +79,12 @@ export class Runtime {
   }
   start() {
     if (this.config.coreOnly) return;
-    const stateDir = path.join(this.config.dataDir, "openclaw");
-    mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+    this.stopping = false;
+    this.ready = false;
+    this.lastError = null;
+    // This gateway only hosts tools; durable work and OAuth state live in Core's
+    // SQLite database. Never persist a gateway owner lease across containers.
+    const stateDir = mkdtempSync(path.join(tmpdir(), "dingdong-openclaw-"));
     const configPath = path.join(stateDir, "openclaw.json");
     const settings = {
       gateway: {
@@ -151,6 +156,7 @@ export class Runtime {
         "OpenClaw를 실행할 수 없습니다. 2026.9.7 설치를 확인해주세요.";
     });
     this.child.on("exit", () => {
+      rmSync(stateDir, { recursive: true, force: true });
       this.ready = false;
       this.lastError = "OpenClaw 프로세스가 종료되었습니다.";
       if (!this.stopping) this.onUnexpectedExit?.();

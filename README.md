@@ -44,7 +44,7 @@ npm run build
 npm start
 ```
 
-Open <http://127.0.0.1:5490>. Sign in using `DINGDONG_ADMIN_KEY` from the generated `.data/credentials.json`. This file is ignored by Git and created with owner-only permissions. Keep it private. The app starts an isolated OpenClaw profile on **18797**, without touching existing profiles, messaging channels, keys or ports.
+Open <http://127.0.0.1:5490>. Sign in using `DINGDONG_ADMIN_KEY` from the generated `.data/credentials.json`. This file is ignored by Git and created with owner-only permissions. Keep it private. The app starts an isolated, temporary OpenClaw profile on **18797**, without touching existing profiles, messaging channels, keys or ports. Business records and OAuth state remain in the persistent Dingdong database; the tool host's runtime lease is recreated each start.
 
 `npm start` serves the last built UI. Run `npm run build` after UI edits. `DINGDONG_CORE_ONLY=1` bypasses OpenClaw **only for isolated tests** and is explicitly labeled in the UI.
 

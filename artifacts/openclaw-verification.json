@@ -1,7 +1,8 @@
 {
-  "timestamp": "2026-10-06T03:21:00.218Z",
+  "timestamp": "2026-10-06T03:27:11.079Z",
   "openclaw": "2026.9.7",
   "actualGateway": true,
+  "gatewayRestart": true,
   "mcpThroughGateway": true,
   "persistedMemoryRecall": true,
   "workflowReviewAndArtifacts": true,

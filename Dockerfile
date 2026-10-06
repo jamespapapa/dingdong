@@ -9,4 +9,4 @@ COPY . .
 RUN npm run build
 ENV NODE_ENV=production PORT=5490 DINGDONG_DATA_DIR=/data
 EXPOSE 5490
-CMD ["npm", "start"]
+CMD ["node", "--import", "tsx", "server/index.ts"]

@@ -127,6 +127,31 @@ try {
     },
   );
   assert.equal(denied.status, 404);
+  const stopped = new Promise<void>((resolve) =>
+    app.runtime.child!.once("exit", () => resolve()),
+  );
+  app.runtime.stop();
+  await stopped;
+  app.runtime.start();
+  let recalledAfterRestart = false;
+  for (let i = 0; i < 50; i++) {
+    try {
+      const context = await app.runtime.invoke(
+        "context_get",
+        { projectId: project.id },
+        "verification",
+      );
+      assert.equal(context.memories.length, 1);
+      recalledAfterRestart = true;
+      break;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    }
+  }
+  assert.ok(
+    recalledAfterRestart,
+    "A restarted gateway must recall the same persistent work memory without an owner-lease conflict",
+  );
   mkdirSync("artifacts", { recursive: true });
   writeFileSync(
     "artifacts/openclaw-verification.json",
@@ -135,6 +160,7 @@ try {
         timestamp: new Date().toISOString(),
         openclaw: app.runtime.version,
         actualGateway: true,
+        gatewayRestart: true,
         mcpThroughGateway: true,
         persistedMemoryRecall: true,
         workflowReviewAndArtifacts: true,

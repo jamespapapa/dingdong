@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createRoot } from "react-dom/client";
 import {
   labels,
@@ -67,8 +73,15 @@ function Modal({
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    ref.current?.showModal();
+  useLayoutEffect(() => {
+    const dialog = ref.current!;
+    const previous = document.activeElement;
+    dialog.showModal();
+    return () => {
+      dialog.close();
+      if (previous instanceof HTMLElement && previous.isConnected)
+        previous.focus();
+    };
   }, []);
   return (
     <dialog ref={ref} onCancel={close} aria-label={title}>
@@ -130,6 +143,7 @@ function App() {
       content: "",
       source: "사용자 직접 입력",
       kind: "fact" as Memory["kind"],
+      layer: "core" as "core" | "episode",
     }),
     [replacement, setReplacement] = useState<Memory | null>(null);
   const [workflowId, setWorkflowId] = useState(""),
@@ -265,8 +279,20 @@ function App() {
     setReplacement(m || null);
     setMemoryForm(
       m
-        ? { title: m.title, content: m.content, source: m.source, kind: m.kind }
-        : { title: "", content: "", source: "사용자 직접 입력", kind: "fact" },
+        ? {
+            title: m.title,
+            content: m.content,
+            source: m.source,
+            kind: m.kind,
+            layer: m.layer || "core",
+          }
+        : {
+            title: "",
+            content: "",
+            source: "사용자 직접 입력",
+            kind: "fact",
+            layer: "core",
+          },
     );
     setModal("memory");
   }
@@ -707,7 +733,10 @@ function App() {
                   .map((m) => (
                     <article className="memory-card" key={m.id}>
                       <div className="section-line">
-                        <Badge>{labels.memory[m.kind]}</Badge>
+                        <Badge>
+                          {labels.memory[m.kind]} ·{" "}
+                          {m.layer === "episode" ? "작업 기록" : "장기 기준"}
+                        </Badge>
                         <span className="fine">
                           {m.status === "confirmed"
                             ? m.validUntil &&
@@ -1560,6 +1589,25 @@ function App() {
                 ))}
               </select>
             </label>
+            <label>
+              기억의 역할
+              <select
+                value={memoryForm.layer}
+                onChange={(e) =>
+                  setMemoryForm({
+                    ...memoryForm,
+                    layer: e.target.value as "core" | "episode",
+                  })
+                }
+              >
+                <option value="core">장기 기준</option>
+                <option value="episode">작업 기록</option>
+              </select>
+            </label>
+            <p className="fine">
+              장기 기준은 다음 작업에도 참고합니다. 작업 기록은 관련 업무를 찾을
+              때 불러오며, 시간이 지나면 검색 우선순위가 낮아집니다.
+            </p>
             <label>
               제목
               <input

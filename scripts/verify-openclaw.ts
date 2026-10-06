@@ -112,6 +112,37 @@ try {
   });
   const result: any = await mcp.json();
   assert.equal(result.result.structuredContent.memories.length, 1);
+  const evidence = result.result.structuredContent.memories[0];
+  assert.match(evidence.citation, /^dingdong:memory:/);
+  const sourceResponse = await fetch(`${config.base}/mcp`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token.access_token}`,
+      Accept: "application/json, text/event-stream",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "memory_get",
+        arguments: {
+          projectId: project.id,
+          id: evidence.id,
+          revision: evidence.revision,
+          start: evidence.excerpt.start,
+          length: evidence.excerpt.end - evidence.excerpt.start,
+        },
+      },
+    }),
+  });
+  const sourceResult: any = await sourceResponse.json();
+  assert.equal(sourceResult.result.structuredContent.content, evidence.content);
+  assert.equal(
+    sourceResult.result.structuredContent.citation,
+    evidence.citation,
+  );
   const denied = await fetch(
     `http://127.0.0.1:${config.gatewayPort}/tools/invoke`,
     {
@@ -163,6 +194,7 @@ try {
         gatewayRestart: true,
         mcpThroughGateway: true,
         persistedMemoryRecall: true,
+        memoryCitationReadback: true,
         workflowReviewAndArtifacts: true,
         unrestrictedShellDenied: true,
         personalDotsAccount: false,

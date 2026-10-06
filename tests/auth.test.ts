@@ -114,7 +114,7 @@ test("OAuth PKCE + discovery + MCP auth + refresh rotation + owner CSRF protecti
         mcpHeaders,
       )
     ).json();
-    assert.equal(tools.result.tools.length, 15);
+    assert.equal(tools.result.tools.length, 16);
     const profile = await (
       await post(
         "/mcp",

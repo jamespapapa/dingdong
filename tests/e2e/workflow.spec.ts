@@ -19,6 +19,7 @@ test("memory → setup → execution → review → improvement, with keyboard a
   await page.getByRole("button", { name: "기억 보관함" }).click();
   await page.getByRole("button", { name: "+ 기억 남기기" }).click();
   await page.getByLabel("제목", { exact: true }).fill("주간 보고 기준");
+  await expect(page.getByLabel("기억의 역할")).toHaveValue("core");
   await page
     .getByLabel("기억할 내용")
     .fill("보고서는 한국어로 작성하고 다음 행동을 명시한다.");
@@ -64,6 +65,19 @@ test("memory → setup → execution → review → improvement, with keyboard a
   await expect(
     page.getByText("다음 행동마다 담당자를 함께 적는다.", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "+ 기억 남기기" }).click();
+  await page.getByLabel("기억의 역할").selectOption("episode");
+  await page.getByLabel("제목", { exact: true }).fill("오늘의 검토 기록");
+  await page
+    .getByLabel("기억할 내용")
+    .fill("보고서 검토를 마쳤고 다음 업무는 담당자 확인이다.");
+  await page.getByRole("button", { name: "확정하고 저장" }).click();
+  await expect(
+    page.getByText("사실 · 작업 기록", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "+ 기억 남기기" }),
+  ).toBeFocused();
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > innerWidth + 1,
   );

@@ -1,0 +1,388 @@
+{
+  "at": "2026-10-06T03:50:16.236Z",
+  "corpus": {
+    "memories": 32,
+    "queries": 12,
+    "synthetic": true
+  },
+  "openclaw": {
+    "version": "OpenClaw 2026.9.7 (c074824)",
+    "sourceCommit": "c074824a27c96d3983043f9eeb33823cd1772d8c",
+    "provider": "none",
+    "actualCli": true
+  },
+  "scope": "Fixed small lexical regression corpus, top 3 unique notes. OpenClaw uses its actual CLI with provider:none; no vector/hybrid/dreaming or model-quality comparison. CLI process startup time is not compared to in-process retrieval latency.",
+  "summary": {
+    "legacy": {
+      "hitAt3": 10,
+      "total": 12,
+      "evidenceAt3": 9
+    },
+    "dingdong": {
+      "hitAt3": 11,
+      "total": 12,
+      "evidenceAt3": 11
+    },
+    "openclawFtsOnly": {
+      "hitAt3": 8,
+      "total": 12,
+      "evidenceAt3": 8
+    }
+  },
+  "queries": [
+    {
+      "query": "보고서 한국어",
+      "relevant": [
+        "korean-format"
+      ],
+      "localMs": 1.566834000000199,
+      "engines": {
+        "legacy": {
+          "ids": [
+            "korean-format"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "dingdong": {
+          "ids": [
+            "korean-format"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "openclawFtsOnly": {
+          "ids": [
+            "korean-format"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        }
+      }
+    },
+    {
+      "query": "한국어",
+      "relevant": [
+        "korean-format"
+      ],
+      "localMs": 0.3122080000002825,
+      "engines": {
+        "legacy": {
+          "ids": [],
+          "hitAt3": false,
+          "evidenceAt3": false
+        },
+        "dingdong": {
+          "ids": [
+            "korean-format"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "openclawFtsOnly": {
+          "ids": [],
+          "hitAt3": false,
+          "evidenceAt3": false
+        }
+      }
+    },
+    {
+      "query": "ERR/QUOTA/EXCEEDED",
+      "relevant": [
+        "quota"
+      ],
+      "localMs": 0.34787499999947613,
+      "engines": {
+        "legacy": {
+          "ids": [],
+          "hitAt3": false,
+          "evidenceAt3": false
+        },
+        "dingdong": {
+          "ids": [
+            "quota"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "openclawFtsOnly": {
+          "ids": [
+            "quota"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        }
+      }
+    },
+    {
+      "query": "approval owner Mina",
+      "relevant": [
+        "owner"
+      ],
+      "localMs": 0.20795799999996234,
+      "engines": {
+        "legacy": {
+          "ids": [
+            "owner"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "dingdong": {
+          "ids": [
+            "owner"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "openclawFtsOnly": {
+          "ids": [
+            "owner"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        }
+      }
+    },
+    {
+      "query": "SQLite backup",
+      "relevant": [
+        "backup"
+      ],
+      "localMs": 0.1974160000008851,
+      "engines": {
+        "legacy": {
+          "ids": [
+            "backup"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "dingdong": {
+          "ids": [
+            "backup"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "openclawFtsOnly": {
+          "ids": [
+            "backup"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        }
+      }
+    },
+    {
+      "query": "상담기록",
+      "relevant": [
+        "unicode"
+      ],
+      "localMs": 0.25791600000047765,
+      "engines": {
+        "legacy": {
+          "ids": [
+            "unicode"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "dingdong": {
+          "ids": [
+            "unicode"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "openclawFtsOnly": {
+          "ids": [],
+          "hitAt3": false,
+          "evidenceAt3": false
+        }
+      }
+    },
+    {
+      "query": "episodic checkpoint",
+      "relevant": [
+        "handoff"
+      ],
+      "localMs": 0.2075409999997646,
+      "engines": {
+        "legacy": {
+          "ids": [
+            "handoff"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "dingdong": {
+          "ids": [
+            "handoff"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "openclawFtsOnly": {
+          "ids": [
+            "handoff"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        }
+      }
+    },
+    {
+      "query": "credentials passwords",
+      "relevant": [
+        "privacy"
+      ],
+      "localMs": 0.19004199999835691,
+      "engines": {
+        "legacy": {
+          "ids": [
+            "privacy"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "dingdong": {
+          "ids": [
+            "privacy"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "openclawFtsOnly": {
+          "ids": [
+            "privacy"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        }
+      }
+    },
+    {
+      "query": "TAIL-RECOVERY-47",
+      "relevant": [
+        "long-tail"
+      ],
+      "localMs": 0.37279100000159815,
+      "engines": {
+        "legacy": {
+          "ids": [
+            "long-tail"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": false
+        },
+        "dingdong": {
+          "ids": [
+            "long-tail",
+            "backup"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "openclawFtsOnly": {
+          "ids": [
+            "long-tail",
+            "backup"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        }
+      }
+    },
+    {
+      "query": "18797",
+      "relevant": [
+        "port"
+      ],
+      "localMs": 0.18387500000062573,
+      "engines": {
+        "legacy": {
+          "ids": [
+            "port"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "dingdong": {
+          "ids": [
+            "port"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "openclawFtsOnly": {
+          "ids": [
+            "port"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        }
+      }
+    },
+    {
+      "query": "Who signs off on shipping?",
+      "relevant": [
+        "owner"
+      ],
+      "localMs": 0.19254200000068522,
+      "engines": {
+        "legacy": {
+          "ids": [
+            "owner",
+            "long-tail",
+            "backup"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "dingdong": {
+          "ids": [
+            "port"
+          ],
+          "hitAt3": false,
+          "evidenceAt3": false
+        },
+        "openclawFtsOnly": {
+          "ids": [],
+          "hitAt3": false,
+          "evidenceAt3": false
+        }
+      }
+    },
+    {
+      "query": "벡터 검색 때문에 지출이 늘어나도 되나",
+      "relevant": [
+        "plan"
+      ],
+      "localMs": 0.38754100000005565,
+      "engines": {
+        "legacy": {
+          "ids": [
+            "unicode",
+            "plan"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "dingdong": {
+          "ids": [
+            "unicode",
+            "plan"
+          ],
+          "hitAt3": true,
+          "evidenceAt3": true
+        },
+        "openclawFtsOnly": {
+          "ids": [],
+          "hitAt3": false,
+          "evidenceAt3": false
+        }
+      }
+    }
+  ]
+}

@@ -16,6 +16,13 @@ export const memoryInput = z
   .object({
     projectId: id,
     kind: z.enum(memoryKinds),
+    layer: z
+      .enum(["core", "episode"])
+      .optional()
+      .describe(
+        "core: durable principles; episode: a dated work observation. Old records default to core.",
+      ),
+    observedAt: z.string().datetime().optional(),
     title: z.string().trim().min(1).max(160),
     content: z.string().trim().min(1).max(10000),
     source: z.string().trim().min(1).max(1000),
@@ -117,6 +124,7 @@ export type Run = {
     title: string;
     content: string;
     source: string;
+    citation?: string;
   }[];
   artifacts: { id: string; name: string; content: string; stepId: string }[];
   createdAt: string;

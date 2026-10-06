@@ -8,6 +8,10 @@ are not included.
 OpenClaw (https://github.com/openclaw/openclaw), MIT licensed, is used as the
 private gateway and tool execution host. This repository supplies the Dingdong
 OpenClaw plugin; the host is installed separately at version 2026.9.7.
+Its memory architecture and the hybrid/MMR/temporal-decay implementation at
+commit c074824a27c96d3983043f9eeb33823cd1772d8c informed Dingdong's independently
+implemented layered memory, lexical retrieval, diversity and decay policies.
+See docs/openclaw-memory-benchmark.md for source links and measured limitations.
 
 Model Context Protocol TypeScript SDK is used under its MIT license.
 Google Fonts DM Sans and Noto Sans KR are served by Google Fonts under their

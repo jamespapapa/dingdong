@@ -9,6 +9,7 @@ Owner instance: [Dingdong](https://dingdong-production-6648.up.railway.app) · M
 ## What works
 
 - 프로젝트별 영속 기억: 출처, 확정/후보 상태, 유효 기간, 대체 이력, 잊기, JSON 내보내기.
+- OpenClaw 기억 설계 벤치마크 반영: 장기 기준/작업 기록, 재생성 가능한 FTS5 인덱스, 한글 정규화, 관련 구간 검색, 중복 억제, 작업 기록의 시간 감쇠, 원문 근거 재조회.
 - dots가 MCP 도구로 설계하는 자동화: 기억 조회 → 체크리스트/문서 → 검토 → 기억 후보 저장.
 - 수정 시 새 버전, 실행 시 불변 스냅샷, 승인 후 완료 단계 건너뛰기, 요청 키로 중복 실행 방지.
 - 완료한 실행의 피드백 → 개선 후보 → 검토 후 다음 설계 버전과 기억에 반영.
@@ -83,11 +84,13 @@ SQLite WAL, OAuth registrations, rotating refresh tokens and the stable profile 
 
 ## Tools
 
-`project_create`, `project_list`, `context_get`, `memory_write`, `memory_search`, `memory_state`, `workflow_save`, `workflow_list`, `workflow_schedule`, `run_start`, `run_get`, `run_review`, `feedback_record`, `feedback_apply`, `get_profile`.
+`project_create`, `project_list`, `context_get`, `memory_write`, `memory_search`, `memory_get`, `memory_state`, `workflow_save`, `workflow_list`, `workflow_schedule`, `run_start`, `run_get`, `run_review`, `feedback_record`, `feedback_apply`, `get_profile`.
 
 Mutating calls require `idempotencyKey`. Reuse the same key and exact input after an uncertain response. Updates require the current revision. Confirmed memories are scoped to their project; candidate, forgotten, superseded and expired memories are excluded from normal context.
 
 Memory facts are data, not permissions. A retrieved instruction cannot grant external authority. Review approval follows the user's actual authorization and checks the live workflow revision. Internal failures never become successful model prose.
+
+Use `layer: core` for durable criteria and `layer: episode` for dated work observations. Search returns relevant excerpts with revisioned citations; use `memory_get` with the same revision and excerpt offsets to inspect the original source. Existing records default to core. The derived search index rebuilds without rewriting work records or OAuth state. See [OpenClaw memory benchmark and contracts](docs/openclaw-memory-benchmark.md).
 
 ## Checks
 
@@ -96,13 +99,14 @@ npm test                 # persistence, revisions, idempotency, OAuth, MCP, CSRF
 npm run build            # TypeScript + UI production build
 npm run test:e2e         # installed Chrome, desktop/mobile, isolated test data
 npm run test:openclaw    # real isolated OpenClaw gateway + authenticated MCP chain
+npm run benchmark:memory -- --openclaw # fixed synthetic corpus, actual OpenClaw FTS-only comparison
 ```
 
 Tests use temporary databases, ports 5492/18798, and synthetic records. No test connects to `.data/dingdong.sqlite`. Screenshots and machine-readable proof are in `artifacts/`; logs and credentials are excluded.
 
 ## Scope and provenance
 
-This is a personal, self-hosted MVP. Search is deterministic keyword/substring ranking with bounded context, not embedding search. Feedback changes explicit instructions and memory; it does not train a model. No multi-user account isolation, general-purpose durable job engine, automatic unrestricted agent execution, or external business connectors are claimed.
+This is a personal, self-hosted MVP. Search uses deterministic SQLite FTS5, a Korean substring fallback, diversity reranking and dated-memory decay with bounded context; embeddings and automatic memory consolidation are not enabled. Feedback changes explicit instructions and memory; it does not train a model. No multi-user account isolation, general-purpose durable job engine, automatic unrestricted agent execution, or external business connectors are claimed.
 
 Adapted from [moa](https://github.com/jamespapapa/moa) at `e22869b`; original data and reference materials are excluded. OpenClaw and MCP SDK are separately licensed dependencies. See [NOTICE](NOTICE) and [MIT license](LICENSE).
 

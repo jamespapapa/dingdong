@@ -2,6 +2,12 @@ import { randomUUID, createHash } from "node:crypto";
 import { z } from "zod";
 import { Store } from "./store.ts";
 import {
+  searchMemories,
+  memoryEvidence,
+  assembleMemoryContext,
+  eligibleMemory,
+} from "./memory-search.ts";
+import {
   id,
   memoryInput,
   workflowInput,
@@ -35,6 +41,16 @@ export const operations = {
     .object({
       projectId: id,
       query: z.string().max(2000).default(""),
+      includeInactive: z.boolean().default(false),
+    })
+    .strict(),
+  memory_get: z
+    .object({
+      projectId: id,
+      id,
+      revision: z.number().int().positive().optional(),
+      start: z.number().int().min(0).default(0),
+      length: z.number().int().min(1).max(6000).default(2000),
       includeInactive: z.boolean().default(false),
     })
     .strict(),
@@ -86,6 +102,7 @@ export type Operation = keyof typeof operations;
 export const readOperations = new Set<Operation>([
   "project_list",
   "memory_search",
+  "memory_get",
   "context_get",
   "workflow_list",
   "run_get",
@@ -118,59 +135,17 @@ export class Core {
   }
   memories(projectId: string, query = "", includeInactive = false): Memory[] {
     this.require<Project>("projects", projectId);
-    const words = query
-      .toLocaleLowerCase()
-      .split(/[\s,.;!?]+/)
-      .filter(Boolean)
-      .slice(0, 30);
-    const items = this.store
-      .list<Memory>("memories")
-      .filter(
-        (m) =>
-          m.projectId === projectId &&
-          (includeInactive ||
-            (m.status === "confirmed" &&
-              (!m.validUntil || m.validUntil > now()))),
-      );
-    const score = (m: Memory) =>
-      words.reduce(
-        (n, w) =>
-          n +
-          (m.title.toLocaleLowerCase().includes(w) ? 3 : 0) +
-          (m.content.toLocaleLowerCase().includes(w) ? 1 : 0),
-        0,
-      );
-    return items
-      .filter((m) => !words.length || score(m) > 0)
-      .sort((a, b) => score(b) - score(a))
-      .slice(0, 100);
+    return searchMemories(this.store, projectId, query, includeInactive);
   }
   context(projectId: string, query: string) {
     const project = this.require<Project>("projects", projectId);
-    const matches = this.memories(projectId, query);
-    const principles = this.memories(projectId).filter((m) =>
-      ["preference", "decision", "procedure", "lesson"].includes(m.kind),
-    );
-    const selected = [
-      ...new Map([...matches, ...principles].map((m) => [m.id, m])).values(),
-    ].slice(0, 16);
-    let remaining = 14000;
-    const memories = selected
-      .map((m) => {
-        const content = m.content.slice(0, Math.min(2000, remaining));
-        remaining -= content.length;
-        return {
-          id: m.id,
-          revision: m.revision,
-          title: m.title,
-          content,
-          source: m.source,
-        };
-      })
-      .filter((m) => m.content);
+    const at = now();
+    const recalled = searchMemories(this.store, projectId, query, false, at);
+    const core = searchMemories(this.store, projectId, "", false, at, "core");
+    const evidence = assembleMemoryContext(core, recalled);
     return {
       project,
-      memories,
+      ...evidence,
       pending: this.store
         .list<Memory>("memories")
         .filter((m) => m.projectId === projectId && m.status === "candidate")
@@ -246,9 +221,48 @@ export class Core {
       case "memory_write":
         return this.writeMemory(p, actor);
       case "memory_search":
+        this.require("projects", p.projectId);
         return {
-          memories: this.memories(p.projectId, p.query, p.includeInactive),
+          memories: searchMemories(
+            this.store,
+            p.projectId,
+            p.query,
+            p.includeInactive,
+          ).map((m) => ({
+            ...memoryEvidence(m),
+            status: m.status,
+            score: m.score,
+          })),
+          retrieval: { mode: "sqlite-fts5", embeddings: false },
         };
+      case "memory_get": {
+        this.require("projects", p.projectId);
+        const m = this.require<Memory>("memories", p.id);
+        if (m.projectId !== p.projectId)
+          throw new AppError(404, "해당 프로젝트의 기억이 아닙니다.");
+        if (p.revision !== undefined) this.revision(m, p.revision);
+        if (!p.includeInactive && !eligibleMemory(m, now()))
+          throw new AppError(
+            409,
+            "현재 문맥에서 제외된 기억입니다. 검토하려면 includeInactive를 명시해주세요.",
+          );
+        const start = Math.min(p.start, m.content.length),
+          end = Math.min(start + p.length, m.content.length);
+        return {
+          ...memoryEvidence(
+            {
+              ...m,
+              score: 1,
+              snippet: m.content.slice(start, end),
+              excerpt: { start, end, totalCharacters: m.content.length },
+            },
+            p.length,
+          ),
+          status: m.status,
+          actor: m.actor,
+          observedAt: m.observedAt || m.createdAt,
+        };
+      }
       case "memory_state": {
         const m = this.require<Memory>("memories", p.id);
         this.revision(m, p.revision);
@@ -513,6 +527,9 @@ export class Core {
     }
     const m: Memory = {
       ...p,
+      layer: p.layer || previous?.layer || "core",
+      observedAt:
+        p.observedAt || previous?.observedAt || previous?.createdAt || now(),
       id: randomUUID(),
       revision: 1,
       createdAt: now(),
@@ -531,7 +548,10 @@ export class Core {
           ({
             input: r.input,
             context: r.context
-              .map((m) => `- ${m.title}: ${m.content}\n  출처: ${m.source}`)
+              .map(
+                (m) =>
+                  `- ${m.title}: ${m.content}\n  출처: ${m.source}${m.citation ? `\n  근거: ${m.citation}` : ""}`,
+              )
               .join("\n"),
             requirements: r.snapshot.requirements,
             previous: r.artifacts.map((a) => a.content).join("\n\n"),
@@ -558,6 +578,7 @@ export class Core {
           {
             projectId: r.projectId,
             kind: "procedure",
+            layer: "episode",
             title: step.title,
             content,
             source: `run:${r.id}`,

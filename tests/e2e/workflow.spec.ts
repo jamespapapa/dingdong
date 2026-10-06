@@ -29,6 +29,13 @@ test("memory → setup → execution → review → improvement, with keyboard a
     page.getByRole("heading", { name: "주간 보고 기준" }),
   ).toBeVisible();
   await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "주간 보고 기준" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "워크스페이스", exact: false })
+    .first()
+    .click();
   await expect(page.getByRole("heading", { name: "다음 일은," })).toBeVisible();
   await page.getByLabel("설정할 업무").fill("주간 프로젝트 보고");
   await page.getByRole("button", { name: "자동화 초안 만들기" }).click();

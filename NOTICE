@@ -4,6 +4,9 @@ The SQLite record store and the versioned workflow, immutable run snapshot,
 approval-resume, idempotency and retrospective contracts were adapted from
 jamespapapa/moa at commit e22869b. Original user data and reference artifacts
 are not included.
+The user's 2026-10-06 moa/Dots business-context proposal informed the independent
+implementation of versioned instructions, context receipts and reviewed changes.
+See docs/work-context-design.md for implemented contracts and remaining scope.
 
 OpenClaw (https://github.com/openclaw/openclaw), MIT licensed, is used as the
 private gateway and tool execution host. This repository supplies the Dingdong

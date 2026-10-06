@@ -4,6 +4,8 @@ import os from "node:os";
 import assert from "node:assert/strict";
 import { createApp } from "../server/app.ts";
 import { secret } from "../server/auth.ts";
+import { reconciliationExample } from "../shared/reconciliation.ts";
+import { textHash } from "../server/work-utils.ts";
 const dir = mkdtempSync(path.join(os.tmpdir(), "dingdong-openclaw-"));
 const config = {
   port: 5492,
@@ -82,20 +84,58 @@ try {
   assert.match(run.artifacts[0].content, /Always include a next action/);
   const completed = await app.runtime.invoke(
     "run_review",
-    { id: run.id, decision: "approve" },
+    { id: run.id, decision: "approve", reviewId: run.review.id },
     "verification",
     "approve",
   );
   assert.equal(completed.status, "completed");
   assert.equal(completed.artifacts.length, 1);
-  const key = secret();
   app.store.put("oauth_clients", "smoke", {
     client_id: "smoke",
     client_name: "Integration fixture",
     redirect_uris: [],
     token_endpoint_auth_method: "none",
   });
+  app.core.dispatch(
+    "connection_update",
+    {
+      clientId: "smoke",
+      revision: 0,
+      projectIds: [project.id],
+      permissions: [
+        "context:read",
+        "workflow:propose",
+        "runs:trial",
+        "artifacts:read",
+      ],
+      allowProjectCreation: false,
+      active: true,
+    },
+    "owner",
+    "grant-smoke",
+  );
   const token = app.auth.issue("smoke", "dingdong");
+  let requestId = 10;
+  async function callTool(name: string, input: Record<string, unknown>) {
+    const response = await fetch(`${config.base}/mcp`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token.access_token}`,
+        Accept: "application/json, text/event-stream",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: ++requestId,
+        method: "tools/call",
+        params: { name, arguments: input },
+      }),
+    });
+    assert.equal(response.status, 200);
+    const body: any = await response.json();
+    assert.equal(body.result?.isError, undefined, JSON.stringify(body));
+    return body.result.structuredContent;
+  }
   const mcp = await fetch(`${config.base}/mcp`, {
     method: "POST",
     headers: {
@@ -142,6 +182,77 @@ try {
   assert.equal(
     sourceResult.result.structuredContent.citation,
     evidence.citation,
+  );
+  const proposal = await callTool("workflow_propose", {
+    reason: "Synthetic order comparison requested for integration verification",
+    workflow: {
+      projectId: project.id,
+      title: "Order reconciliation",
+      brief: "Report differences with original row references",
+      steps: [
+        {
+          id: "compare",
+          kind: "reconcile",
+          title: "Quantity differences",
+          content: '{"excludeHeld":true,"toleranceUnits":0}',
+        },
+        { id: "review", kind: "review", title: "Owner review" },
+      ],
+    },
+    idempotencyKey: "comparison-proposal",
+  });
+  assert.equal(proposal.status, "pending");
+  assert.equal(app.store.list("workflows").length, 1);
+  const applied = await app.runtime.invoke(
+    "proposal_review",
+    { id: proposal.id, decision: "apply" },
+    "verification",
+    "apply-proposal",
+  );
+  const workContext = await callTool("work_context_get", {
+    projectId: project.id,
+    workflowId: applied.appliedWorkflowId,
+    input: reconciliationExample,
+  });
+  assert.equal(workContext.ready, true);
+  assert.equal(workContext.inputContract.format, "json");
+  const trial = await callTool("run_start", {
+    workflowId: applied.appliedWorkflowId,
+    revision: 1,
+    input: reconciliationExample,
+    contextId: workContext.id,
+    inputSource: "Synthetic test JSON",
+    idempotencyKey: "comparison-trial",
+  });
+  assert.equal(trial.status, "needs_review");
+  assert.equal(trial.artifacts[0].content, undefined);
+  assert.equal(trial.input, undefined);
+  const artifact = await callTool("artifact_get", {
+    runId: trial.id,
+    artifactId: trial.artifacts[0].id,
+  });
+  assert.match(artifact.content, /BOOK-A \| 10 \| 8 \| -2 \| 부족/);
+  assert.equal(artifact.sha256, textHash(artifact.content));
+  await assert.rejects(
+    () =>
+      app.runtime.invoke(
+        "run_review",
+        { id: trial.id, decision: "approve" },
+        "mcp:smoke",
+        "agent-approval",
+      ),
+    /소유자/,
+  );
+  const actualTrial = await app.runtime.invoke(
+    "run_get",
+    { id: trial.id },
+    "verification",
+  );
+  await app.runtime.invoke(
+    "run_review",
+    { id: trial.id, decision: "approve", reviewId: actualTrial.review.id },
+    "verification",
+    "owner-comparison-approval",
   );
   const denied = await fetch(
     `http://127.0.0.1:${config.gatewayPort}/tools/invoke`,
@@ -195,6 +306,11 @@ try {
         mcpThroughGateway: true,
         persistedMemoryRecall: true,
         memoryCitationReadback: true,
+        workflowProposalOwnerReview: true,
+        contextReceiptBoundTrial: true,
+        deterministicReconciliation: true,
+        artifactHashReadback: true,
+        remoteApprovalDenied: true,
         workflowReviewAndArtifacts: true,
         unrestrictedShellDenied: true,
         personalDotsAccount: false,

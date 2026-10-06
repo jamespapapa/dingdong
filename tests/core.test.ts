@@ -141,12 +141,16 @@ test("review resumes exact snapshot, never recreates completed artifacts, feedba
   assert.equal(r.snapshot.revision, 1);
   const done: Run = f.call(
     "run_review",
-    { id: r.id, decision: "approve" },
+    { id: r.id, decision: "approve", reviewId: r.review?.id },
     "approve",
   );
   assert.equal(done.status, "completed");
   assert.equal(done.artifacts[0].id, r.artifacts[0].id);
-  f.call("run_review", { id: r.id, decision: "approve" }, "approve");
+  f.call(
+    "run_review",
+    { id: r.id, decision: "approve", reviewId: r.review?.id },
+    "approve",
+  );
   assert.equal(f.store.list("memories").length, 1);
   const feedback = f.call("feedback_record", {
     runId: r.id,
@@ -192,7 +196,11 @@ test("stale approval is rejected, old run can be cancelled and schedule needs co
     workflowId: w.id,
     revision: updated.revision,
   });
-  f.call("run_review", { id: fresh.id, decision: "approve" });
+  f.call("run_review", {
+    id: fresh.id,
+    decision: "approve",
+    reviewId: fresh.review?.id,
+  });
   const active = f.call("workflow_schedule", {
     id: w.id,
     revision: 2,

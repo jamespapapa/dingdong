@@ -8,6 +8,12 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { Store } from "./store.ts";
 import { AppError } from "./core.ts";
+import {
+  permissionNames,
+  permissionLabels,
+  type Connection,
+} from "../shared/work.ts";
+import type { Project } from "../shared/domain.ts";
 
 export const secret = () => randomBytes(32).toString("base64url");
 export const digest = (value: string) =>
@@ -22,6 +28,8 @@ const escape = (s: string) =>
         c
       ]!,
   );
+const consentPage = (body: string) =>
+  `<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dingdong 연결</title><style>body{background:#f4f2ec;color:#232722;font:17px system-ui;margin:0;padding:8vh 24px}main{max-width:520px;margin:auto;background:white;border:1px solid #dddcd4;padding:36px;border-radius:20px}h1{font-size:30px}label,input,button{display:block;width:100%;box-sizing:border-box}input{padding:14px;border:1px solid #bbb;margin:12px 0 24px;border-radius:8px}input[type=checkbox]{display:inline;width:auto;margin:8px}fieldset{margin:20px 0;border:1px solid #ddd}button{padding:15px;background:#263e32;color:white;border:0;border-radius:8px;font:inherit}small{display:block;overflow-wrap:anywhere;color:#666}</style><main><b>dingdong.</b>${body}</main></html>`;
 const cookie = (req: Request, name: string) =>
   (req.headers.cookie || "")
     .split(";")
@@ -100,13 +108,24 @@ export class Auth {
     const t = value
       ? this.store.get<Token>("tokens", digest(value))
       : undefined;
-    return t &&
+    const grant = t
+      ? this.store.get<Connection>("connections", t.clientId)
+      : undefined;
+    const valid =
+      t &&
       t.type === "access" &&
       t.expires > Date.now() &&
       t.resource === this.resource &&
-      t.scope.split(" ").includes("dingdong")
-      ? t
-      : undefined;
+      t.scope.split(" ").includes("dingdong") &&
+      grant?.active
+        ? t
+        : undefined;
+    if (valid && grant)
+      this.store.put("connections", grant.clientId, {
+        ...grant,
+        lastUsedAt: new Date().toISOString(),
+      });
+    return valid;
   }
   challenge() {
     return `Bearer resource_metadata="${this.base}/.well-known/oauth-protected-resource", error="invalid_token", error_description="Connect your Dingdong account"`;
@@ -197,14 +216,12 @@ export class Auth {
         token_endpoint_auth_method: "none",
       };
       this.store.put("oauth_clients", client.client_id, client);
-      res
-        .status(201)
-        .json({
-          ...client,
-          grant_types: ["authorization_code", "refresh_token"],
-          response_types: ["code"],
-          client_id_issued_at: Math.floor(Date.now() / 1000),
-        });
+      res.status(201).json({
+        ...client,
+        grant_types: ["authorization_code", "refresh_token"],
+        response_types: ["code"],
+        client_id_issued_at: Math.floor(Date.now() / 1000),
+      });
     });
     app.get("/oauth/authorize", (req, res) => {
       this.limit(req, "authorize");
@@ -248,33 +265,105 @@ export class Auth {
         maxAge: 600000,
       });
       res
+        .set("Cache-Control", "no-store")
         .type("html")
         .send(
-          `<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dingdong 연결</title><style>body{background:#f4f2ec;color:#232722;font:17px system-ui;margin:0;padding:8vh 24px}main{max-width:480px;margin:auto;background:white;border:1px solid #dddcd4;padding:36px;border-radius:20px}h1{font-size:30px}label,input,button{display:block;width:100%;box-sizing:border-box}input{padding:14px;border:1px solid #bbb;margin:12px 0 24px;border-radius:8px}button{padding:15px;background:#263e32;color:white;border:0;border-radius:8px;font:inherit}small{display:block;overflow-wrap:anywhere;color:#666}</style><main><b>dingdong.</b><h1>기억과 업무를 연결합니다.</h1><p><strong>${escape(client.client_name)}</strong>가 이 개인 워크스페이스의 기억과 자동화 도구를 사용합니다.</p><small>연결 대상: ${escape(new URL(q.redirect_uri).origin)}</small><p>기억 조회·저장, 자동화 설계·실행·검토 권한을 제공합니다. 외부 계정의 권한은 포함하지 않습니다.</p><form method="post" action="/oauth/authorize"><input type="hidden" name="pending" value="${pending}"><label for="key">Dingdong 소유자 키</label><input id="key" type="password" name="key" required autocomplete="current-password"><button>내 dots에 연결 허용</button></form></main></html>`,
+          consentPage(
+            `<h1>소유자를 먼저 확인합니다.</h1><p><strong>${escape(client.client_name)}</strong>의 연결 요청입니다.</p><small>연결 대상: ${escape(new URL(q.redirect_uri).origin)}</small><p>확인 후 공유할 프로젝트와 도구 권한을 선택합니다.</p><form method="post" action="/oauth/authorize"><input type="hidden" name="pending" value="${pending}"><label for="key">Dingdong 소유자 키</label><input id="key" type="password" name="key" required autocomplete="current-password"><button>소유자 확인</button></form>`,
+          ),
         );
     });
     app.post("/oauth/authorize", (req, res) => {
       this.limit(req, "consent", 10);
-      const { pending, key } = z
-        .object({ pending: z.string().max(100), key: z.string().max(500) })
+      const selections = z
+        .union([z.string(), z.array(z.string())])
+        .optional()
+        .transform((v) => (v === undefined ? [] : Array.isArray(v) ? v : [v]));
+      const { pending, key, projectIds, permissions, allowProjectCreation } = z
+        .object({
+          pending: z.string().max(100),
+          key: z.string().max(500).optional(),
+          projectIds: selections.pipe(z.array(z.string()).max(100)),
+          permissions: selections.pipe(z.array(z.enum(permissionNames)).max(5)),
+          allowProjectCreation: z
+            .union([z.literal("true"), z.literal(true)])
+            .optional(),
+        })
         .parse(req.body);
-      const p = this.store.get<{ q: any; csrf: string; expires: number }>(
-        "oauth_pending",
-        digest(pending),
-      );
+      const p = this.store.get<{
+        q: any;
+        csrf: string;
+        expires: number;
+        ownerVerified?: boolean;
+      }>("oauth_pending", digest(pending));
       if (
         !p ||
         p.expires < Date.now() ||
         !equal(p.csrf, digest(cookie(req, "dd_oauth") || ""))
       )
         throw new AppError(400, "연결 요청이 만료됐습니다. 다시 연결해주세요.");
-      if (!equal(key, this.ownerKey))
-        throw new AppError(
-          401,
-          "소유자 키를 확인해주세요. 뒤로 가서 다시 입력할 수 있습니다.",
+      if (!p.ownerVerified) {
+        if (!key || !equal(key, this.ownerKey))
+          throw new AppError(
+            401,
+            "소유자 키를 확인해주세요. 뒤로 가서 다시 입력할 수 있습니다.",
+          );
+        this.store.put("oauth_pending", digest(pending), {
+          ...p,
+          ownerVerified: true,
+        });
+        const client = this.store.get<Client>("oauth_clients", p.q.client_id)!;
+        const projects = this.store
+          .list<Project>("projects")
+          .map(
+            (project) =>
+              `<label><input type="checkbox" name="projectIds" value="${escape(project.id)}"> ${escape(project.name)}</label>`,
+          )
+          .join("");
+        const permissions = permissionNames
+          .map(
+            (permission) =>
+              `<label><input type="checkbox" name="permissions" value="${permission}" ${permission === "context:read" ? "checked" : ""}> ${permissionLabels[permission]}</label>`,
+          )
+          .join("");
+        // Chromium applies form-action to the OAuth redirect as well as the
+        // local form POST. Allow only this already-validated callback origin.
+        res.set(
+          "Content-Security-Policy",
+          String(res.get("Content-Security-Policy")).replace(
+            "form-action 'self'",
+            `form-action 'self' ${new URL(p.q.redirect_uri).origin}`,
+          ),
         );
+        res
+          .set("Cache-Control", "no-store")
+          .type("html")
+          .send(
+            consentPage(
+              `<h1>공유할 업무를 선택하세요.</h1><p><strong>${escape(client.client_name)}</strong>에 아래 범위의 접근을 허용합니다.</p><small>연결 대상: ${escape(new URL(p.q.redirect_uri).origin)}</small><p>기억 확정, 설계 적용, 실행 승인과 예약은 소유자 화면에서 검토합니다.</p><form method="post" action="/oauth/authorize"><input type="hidden" name="pending" value="${pending}"><fieldset><legend>공유할 프로젝트</legend>${projects || "아직 프로젝트가 없습니다."}<label><input type="checkbox" name="allowProjectCreation" value="true"> 새 프로젝트 생성과 해당 프로젝트 공유 허용</label></fieldset><fieldset><legend>허용할 도구</legend>${permissions}</fieldset><button>내 dots에 연결 허용</button></form>`,
+            ),
+          );
+        return;
+      }
       const code = secret();
       this.store.transaction(() => {
+        for (const projectId of projectIds)
+          if (!this.store.get("projects", projectId))
+            throw new AppError(400, "공유할 프로젝트를 다시 확인해주세요.");
+        const previous = this.store.get<Connection>(
+          "connections",
+          p.q.client_id,
+        );
+        this.store.put<Connection>("connections", p.q.client_id, {
+          clientId: p.q.client_id,
+          revision: (previous?.revision || 0) + 1,
+          active: true,
+          projectIds: [...new Set(projectIds)],
+          permissions: [...new Set(permissions)],
+          allowProjectCreation: !!allowProjectCreation,
+          createdAt: previous?.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
         this.store.remove("oauth_pending", digest(pending));
         this.store.put<Grant>("oauth_codes", digest(code), {
           clientId: p.q.client_id,
@@ -310,6 +399,8 @@ export class Auth {
         return res.status(400).json({ error: "invalid_target" });
       if (!this.store.get("oauth_clients", p.client_id))
         return res.status(400).json({ error: "invalid_client" });
+      if (!this.store.get<Connection>("connections", p.client_id)?.active)
+        return res.status(400).json({ error: "invalid_grant" });
       const response = this.store.transaction(() => {
         if (p.grant_type === "authorization_code") {
           const codeHash = digest(p.code || "");

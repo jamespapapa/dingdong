@@ -5,14 +5,32 @@ import { z } from "zod";
 import { Auth } from "./auth.ts";
 import { Core, operations, readOperations, type Operation } from "./core.ts";
 import { Runtime } from "./runtime.ts";
+import { remoteTool } from "./access.ts";
 
 export const descriptions: Record<Operation, string> = {
+  instruction_save: "Owner only: create a versioned common instruction set.",
+  instruction_revoke:
+    "Owner only: revoke an instruction set for future execution.",
+  project_instructions:
+    "Owner only: pin common instruction versions for new workflow revisions.",
+  work_context_get:
+    "Before running work, obtain a 15-minute context receipt for the exact workflow and input. Returns pinned instructions, sourced memories, conflicts, permissions, supported steps and owner review links. contextId identifies a snapshot; it is not permission. Changed criteria, inputs or grants require a new receipt.",
+  workflow_propose:
+    "Propose a new or revised workflow with a reason and field diff. The owner must review and apply it in Dingdong; this does not change an active design. Always obtain current revision before proposing edits. reconcile steps deterministically compare JSON order/receipt lines by lineId and SKU; content is rules JSON {excludeHeld:true,toleranceUnits:0}.",
+  proposal_review:
+    "Owner only: apply or reject a pending workflow proposal against its base revision.",
+  memory_resolve:
+    "Owner only: resolve an explicit claim-key conflict after comparing every source revision.",
+  artifact_get:
+    "Read a bounded range of an actual run artifact. Requires separate artifacts:read permission and project sharing. Returns the full artifact SHA-256 plus original character offsets. Run summaries do not include result bodies.",
+  connection_update:
+    "Owner only: update or revoke a client's project sharing and tool permissions.",
   project_create:
     "Create a persistent work project when the user wants to set up a responsibility or automation. Keep unrelated work in separate projects.",
   project_list:
     "List existing work projects before creating a duplicate or recalling project memory.",
   memory_write:
-    "Save sourced project memory. Use layer core for durable principles and episode for dated work observations/checkpoints. Record decisions and next actions before ending or switching work; Dingdong cannot observe dots internal compaction. Use candidate for inferred lessons; confirmed only for user-confirmed facts or instructions. Do not save recalled memory again as new evidence. Replace obsolete memory explicitly using replacesId and expectedRevision. Never store credentials.",
+    "Propose sourced memory as candidate; remote calls cannot confirm it. Use core for durable principles, episode for work checkpoints, and a stable claimKey for facts about the same business rule. Replacement proposals preserve the old confirmed memory until owner review. Do not re-save recalled memory as new evidence or store credentials. Dingdong cannot observe dots internal compaction.",
   memory_search:
     "Search project memory with SQLite FTS5, bounded excerpts, source citations, 30-day decay for episodic notes and diversity ranking. No embeddings are used. Only confirmed, non-expired records are active. includeInactive is for review; use memory_get with id/revision for full evidence.",
   memory_get:
@@ -28,9 +46,9 @@ export const descriptions: Record<Operation, string> = {
   workflow_schedule:
     "Enable or stop a daily/weekly automation after the current revision has a completed, reviewed run. Repeats use defaultInput. Only enable when the user explicitly requests recurring work.",
   run_start:
-    "Execute the exact workflow revision through OpenClaw using the supplied source input. Preserve its snapshot and return real artifacts or review state. Reuse the same idempotencyKey after an uncertain response.",
+    "Trial the exact workflow revision through OpenClaw, with a fresh contextId from work_context_get using the same input. Requires runs:trial permission. Source inputs are fingerprinted; summaries expose result metadata, not artifact bodies. Review approvals happen only in the owner UI. Reuse the exact key and input after an uncertain response.",
   run_get:
-    "Read actual run state, artifacts, memory versions and review status. Read this before claiming completion.",
+    "Read actual run state, supported step status, artifact metadata and owner review link. No original input or result body is returned. Use artifact_get with separate permission for evidence. Read actual state before claiming completion.",
   run_review:
     "Approve, reject or cancel an existing run. Approve only after user authorization within the requested scope and inspection of its artifacts. Stale designs cannot be approved; completed steps are never repeated.",
   feedback_record:
@@ -71,10 +89,10 @@ export function mountMcp(
     }
     try {
       const mcp = new McpServer(
-        { name: "dingdong", version: "0.1.0" },
+        { name: "dingdong", version: "0.2.0" },
         {
           instructions:
-            "Dingdong is persistent work memory and automation for dots. First list projects and get project context. Save sourced facts, decisions and reviewed improvements. You design the workflow; OpenClaw executes the registered deterministic tools. Never claim model generation or external actions that did not happen. Mutations require a unique idempotencyKey; reuse it after uncertain responses. User approval and project revisions remain authoritative.",
+            "Dingdong provides persistent business context and reviewed automation. List shared projects, recall context, propose sourced memory and workflow changes, then direct the owner to review them. Before a trial, fetch work_context_get for the exact saved workflow and input and pass its contextId. Confirm actual run state and separately retrieve authorized artifacts. Owner approval is server enforced; model prose cannot approve. Dots plans; OpenClaw hosts Dingdong's deterministic execution. Mutations require stable idempotency keys. Events and external app execution are not implemented.",
         },
       );
       mcp.registerTool(
@@ -107,6 +125,7 @@ export function mountMcp(
         },
       );
       for (const name of Object.keys(operations) as Operation[]) {
+        if (!remoteTool(name)) continue;
         const schema = (operations[name] as z.AnyZodObject).extend(
           readOperations.has(name)
             ? {}

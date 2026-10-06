@@ -1513,6 +1513,134 @@ dialog::backdrop {
     font-size: 19px;
   }
 }
+.governance-layout,
+.diff-columns,
+.conflict-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.governance-layout > *,
+.diff-columns > *,
+.conflict-options > * {
+  min-width: 0;
+}
+.governance-section {
+  margin-top: 28px;
+}
+.standard-list {
+  margin-top: 32px;
+}
+.standard-item,
+.proposal-card,
+.connection-editor,
+.conflict-group {
+  border-top: 1px solid var(--line);
+  padding: 24px 0;
+}
+.standard-item p,
+.conflict-options p {
+  margin-top: 14px;
+}
+.preserve-lines {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.standard-note {
+  background: var(--wash);
+  padding: 24px;
+  margin-top: 32px;
+}
+.standard-note p:last-child {
+  margin-bottom: 0;
+}
+.checklist-field {
+  border: 0;
+  margin: 20px 0;
+  padding: 0;
+  min-width: 0;
+}
+.checklist-field legend {
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.check-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 0;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.check-label > input {
+  width: 17px;
+  height: 17px;
+  margin: 3px 0 0;
+  flex: 0 0 17px;
+  accent-color: var(--green);
+}
+.check-label small {
+  display: block;
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.connection-editor > button {
+  margin-top: 12px;
+}
+.proposal-diff {
+  margin: 24px 0;
+}
+.proposal-diff strong {
+  display: block;
+  margin-bottom: 12px;
+}
+.proposal-diff pre,
+.input-example pre {
+  background: var(--wash);
+  padding: 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.8;
+}
+summary {
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.8;
+}
+summary:focus-visible {
+  outline: 3px solid #c39320;
+  outline-offset: 3px;
+}
+.execution-evidence,
+.input-example {
+  border: 1px solid var(--line);
+  padding: 18px;
+  margin: 20px 0;
+}
+.execution-evidence[open] summary,
+.input-example[open] summary {
+  margin-bottom: 18px;
+}
+.execution-evidence p {
+  overflow-wrap: anywhere;
+}
+.conflict-options > div {
+  background: var(--wash);
+  padding: 20px;
+}
+@media (max-width: 760px) {
+  .governance-layout,
+  .diff-columns,
+  .conflict-options {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .standard-note {
+    padding: 18px;
+  }
+}
 @media (prefers-reduced-motion: no-preference) {
   .panel,
   .composer,

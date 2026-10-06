@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { InstructionRef, WorkContext } from "./work.ts";
 
 export const id = z
   .string()
@@ -23,6 +24,7 @@ export const memoryInput = z
         "core: durable principles; episode: a dated work observation. Old records default to core.",
       ),
     observedAt: z.string().datetime().optional(),
+    claimKey: z.string().trim().min(1).max(120).optional(),
     title: z.string().trim().min(1).max(160),
     content: z.string().trim().min(1).max(10000),
     source: z.string().trim().min(1).max(1000),
@@ -39,11 +41,21 @@ export type Memory = Omit<z.infer<typeof memoryInput>, "status"> & {
   createdAt: string;
   updatedAt: string;
   actor: string;
+  confirmedBy?: string;
+  confirmedAt?: string;
+  replacementApplied?: boolean;
 };
 export const stepInput = z
   .object({
     id,
-    kind: z.enum(["recall", "checklist", "document", "review", "remember"]),
+    kind: z.enum([
+      "recall",
+      "checklist",
+      "document",
+      "reconcile",
+      "review",
+      "remember",
+    ]),
     title: z.string().trim().min(1).max(120),
     content: z.string().max(14000).default(""),
   })
@@ -66,7 +78,11 @@ export const workflowInput = z
         message: "단계 ID가 중복됩니다.",
         path: ["steps"],
       });
-    if (!w.steps.some((s) => s.kind === "document" || s.kind === "checklist"))
+    if (
+      !w.steps.some((s) =>
+        ["document", "checklist", "reconcile"].includes(s.kind),
+      )
+    )
       ctx.addIssue({
         code: "custom",
         message: "문서 또는 체크리스트 단계를 추가해주세요.",
@@ -92,12 +108,16 @@ export type Workflow = z.infer<typeof workflowInput> & {
   nextRunAt: string | null;
   createdAt: string;
   updatedAt: string;
+  instructionRefs?: InstructionRef[];
+  criteriaHash?: string;
 };
 export type Project = {
   id: string;
   name: string;
   description: string;
   createdAt: string;
+  revision?: number;
+  instructionRefs?: InstructionRef[];
 };
 export type Run = {
   id: string;
@@ -126,7 +146,26 @@ export type Run = {
     source: string;
     citation?: string;
   }[];
-  artifacts: { id: string; name: string; content: string; stepId: string }[];
+  artifacts: {
+    id: string;
+    name: string;
+    content: string;
+    stepId: string;
+    sha256?: string;
+  }[];
+  workContext?: WorkContext;
+  inputEvidence?: {
+    sha256: string;
+    source: string;
+    receivedAt: string;
+    actor: string;
+  };
+  review?: {
+    id: string;
+    stepId: string;
+    expiresAt: string;
+    snapshotHash: string;
+  };
   createdAt: string;
   finishedAt: string | null;
   error: string | null;
@@ -163,6 +202,7 @@ export const labels = {
     recall: "기억 불러오기",
     checklist: "체크리스트",
     document: "문서 만들기",
+    reconcile: "발주·입고 대조",
     review: "사람의 검토",
     remember: "경험 저장",
   },

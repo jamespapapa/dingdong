@@ -9,7 +9,7 @@ import { mountMcp } from "./mcp.ts";
 
 export function createApp(config: Config) {
   const store = new Store(path.join(config.dataDir, "dingdong.sqlite"));
-  const core = new Core(store),
+  const core = new Core(store, config.base),
     auth = new Auth(store, config.base, config.adminKey),
     runtime = new Runtime(config, core);
   const app = express();
@@ -29,14 +29,12 @@ export function createApp(config: Config) {
   app.use(express.urlencoded({ extended: false, limit: "16kb" }));
   app.get("/health", (_req, res) => {
     const ok = config.coreOnly || runtime.ready;
-    res
-      .status(ok ? 200 : 503)
-      .json({
-        ok,
-        service: "dingdong",
-        version: "0.1.0",
-        runtime: runtime.status(),
-      });
+    res.status(ok ? 200 : 503).json({
+      ok,
+      service: "dingdong",
+      version: "0.2.0",
+      runtime: runtime.status(),
+    });
   });
   auth.mount(app);
   app.post("/internal/tool", (req, res) => {
@@ -63,13 +61,11 @@ export function createApp(config: Config) {
   mountMcp(app, auth, runtime, core);
   app.use("/api", auth.ownerMiddleware);
   app.get("/api/snapshot", (_req, res) =>
-    res
-      .set("Cache-Control", "no-store")
-      .json({
-        ...core.snapshot(),
-        runtime: runtime.status(),
-        base: config.base,
-      }),
+    res.set("Cache-Control", "no-store").json({
+      ...core.snapshot(),
+      runtime: runtime.status(),
+      base: config.base,
+    }),
   );
   app.post("/api/tools/:operation", async (req, res) => {
     const operation = req.params.operation as Operation;
@@ -98,6 +94,7 @@ export function createApp(config: Config) {
         events: store.list("events"),
         memoryHistory: store.list("memory_history"),
         workflowHistory: store.list("workflow_history"),
+        instructionHistory: store.list("instruction_history"),
       }),
   );
   app.get("/api/runs/:runId/artifacts/:artifactId", (req, res) => {

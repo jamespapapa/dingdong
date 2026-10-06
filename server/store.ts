@@ -90,11 +90,13 @@ export class Store {
     includeInactive: boolean,
     at: string,
     layer?: "core" | "episode",
+    excludedIds: string[] = [],
   ): MemoryCandidate[] {
-    const eligibility = `project_id=? AND (? IS NULL OR COALESCE(json_extract(r.body,'$.layer'),'core')=?) AND (?=1 OR (json_extract(r.body,'$.status')='confirmed' AND (json_extract(r.body,'$.validUntil') IS NULL OR json_extract(r.body,'$.validUntil')>?)))`;
+    const eligibility = `project_id=? AND memory_id NOT IN (SELECT value FROM json_each(?)) AND (? IS NULL OR COALESCE(json_extract(r.body,'$.layer'),'core')=?) AND (?=1 OR (json_extract(r.body,'$.status')='confirmed' AND (json_extract(r.body,'$.validUntil') IS NULL OR json_extract(r.body,'$.validUntil')>?)))`;
     const join = `FROM memory_chunks JOIN records r ON r.kind='memories' AND r.id=memory_id`;
     const args = [
       projectId,
+      JSON.stringify(excludedIds),
       layer || null,
       layer || null,
       Number(includeInactive),

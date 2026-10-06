@@ -1,6 +1,7 @@
 import type { Memory } from "../shared/domain.ts";
 import type { Store } from "./store.ts";
 import { memoryTerms, normalizeMemoryText } from "./memory-text.ts";
+import { memoryConflicts } from "./memory-conflicts.ts";
 
 export type MemoryHit = Memory & {
   snippet: string;
@@ -66,6 +67,11 @@ export function searchMemories(
     includeInactive,
     at,
     layer,
+    includeInactive
+      ? []
+      : memoryConflicts(store, projectId, at).flatMap((c) =>
+          c.memories.map((m) => m.id),
+        ),
   );
   const maxRank = Math.max(
     1e-9,

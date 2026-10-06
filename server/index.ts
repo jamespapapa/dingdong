@@ -3,7 +3,7 @@ import { configFromEnv } from "./config.ts";
 import type { Workflow, Run } from "../shared/domain.ts";
 
 const config = configFromEnv();
-const { app, runtime, store } = createApp(config);
+const { app, runtime, store, core } = createApp(config);
 const server = app.listen(config.port, "0.0.0.0", () => {
   console.log(`Dingdong listening on ${config.base}`);
   runtime.start();
@@ -36,6 +36,8 @@ const scheduler = setInterval(async () => {
         (w) =>
           w.active && w.nextRunAt && w.nextRunAt <= new Date().toISOString(),
       )) {
+      core.pauseChangedSchedules(w.projectId, "scheduler");
+      if (!store.get<Workflow>("workflows", w.id)?.active) continue;
       if (
         store
           .list<Run>("runs")

@@ -17,8 +17,33 @@ import {
   type Step,
 } from "../shared/domain";
 import "./style.css";
+import { WorkGovernance, Connections } from "./WorkGovernance";
+import type {
+  InstructionSet,
+  Proposal,
+  MemoryConflict,
+  Connection,
+} from "../shared/work";
+import { reconciliationExample } from "../shared/reconciliation";
 
-type View = "home" | "memories" | "workflows" | "runs" | "connection";
+type View =
+  | "home"
+  | "memories"
+  | "governance"
+  | "workflows"
+  | "runs"
+  | "connection";
+const navigation = new URLSearchParams(window.location.search);
+const initialView = [
+  "home",
+  "memories",
+  "governance",
+  "workflows",
+  "runs",
+  "connection",
+].includes(navigation.get("view") || "")
+  ? (navigation.get("view") as View)
+  : "home";
 type Snapshot = {
   projects: Project[];
   memories: Memory[];
@@ -26,6 +51,10 @@ type Snapshot = {
   runs: Run[];
   feedback: Feedback[];
   events: Event[];
+  instructions: InstructionSet[];
+  proposals: Proposal[];
+  conflicts: MemoryConflict[];
+  connections: Connection[];
   runtime: {
     mode: string;
     ready: boolean;
@@ -126,8 +155,8 @@ function App() {
   const [data, setData] = useState<Snapshot | null>(null),
     [login, setLogin] = useState(false),
     [ownerKey, setOwnerKey] = useState("");
-  const [view, setView] = useState<View>("home"),
-    [projectId, setProjectId] = useState(""),
+  const [view, setView] = useState<View>(initialView),
+    [projectId, setProjectId] = useState(navigation.get("project") || ""),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false);
@@ -144,12 +173,16 @@ function App() {
       source: "사용자 직접 입력",
       kind: "fact" as Memory["kind"],
       layer: "core" as "core" | "episode",
+      claimKey: "",
     }),
     [replacement, setReplacement] = useState<Memory | null>(null);
-  const [workflowId, setWorkflowId] = useState(""),
+  const [workflowId, setWorkflowId] = useState(
+      navigation.get("workflow") || "",
+    ),
     [draft, setDraft] = useState<Draft | null>(null),
+    [draftRevision, setDraftRevision] = useState<number | undefined>(),
     [runInput, setRunInput] = useState(""),
-    [runId, setRunId] = useState("");
+    [runId, setRunId] = useState(navigation.get("run") || "");
   const [feedback, setFeedback] = useState({
     observation: "",
     change: "",
@@ -176,6 +209,14 @@ function App() {
     const timer = setInterval(reload, 10000);
     return () => clearInterval(timer);
   }, [reload]);
+  useEffect(() => {
+    if (!data) return;
+    const params = new URLSearchParams({ view });
+    if (projectId) params.set("project", projectId);
+    if (view === "runs" && runId) params.set("run", runId);
+    if (view === "workflows" && workflowId) params.set("workflow", workflowId);
+    window.history.replaceState(null, "", `/?${params}`);
+  }, [data, view, projectId, runId, workflowId]);
   useEffect(() => {
     if (notice) {
       const timer = setTimeout(() => setNotice(""), 5000);
@@ -221,6 +262,7 @@ function App() {
   const activeMemories = memories.filter(
     (m) =>
       m.status === "confirmed" &&
+      !data?.conflicts.some((c) => c.memories.some((x) => x.id === m.id)) &&
       (!m.validUntil || m.validUntil > new Date().toISOString()),
   );
   const candidates = memories.filter((m) => m.status === "candidate");
@@ -228,8 +270,13 @@ function App() {
     selectedRun = runs.find((r) => r.id === runId) || runs[0];
   const isRuntimeReady =
     data?.runtime.ready || data?.runtime.mode === "core-only-test";
+  useEffect(() => {
+    if (view === "workflows" && selectedWorkflow && !draft)
+      edit(selectedWorkflow);
+  }, [view, selectedWorkflow, draft]);
   function edit(w: Workflow) {
     setWorkflowId(w.id);
+    setDraftRevision(w.revision);
     setDraft({
       title: w.title,
       brief: w.brief,
@@ -243,6 +290,7 @@ function App() {
   }
   function createDraft() {
     setWorkflowId("");
+    setDraftRevision(undefined);
     setDraft({
       title: brief.split("\n")[0]?.slice(0, 100) || "새 업무 세팅",
       brief: brief || "업무의 목적과 완료 기준을 입력해주세요.",
@@ -275,6 +323,40 @@ function App() {
     });
     setView("workflows");
   }
+  function createReconciliationDraft() {
+    setWorkflowId("");
+    setDraftRevision(undefined);
+    setRunInput("");
+    setDraft({
+      title: "발주·입고 대조",
+      brief:
+        "지난번 확정한 기준과 현재 발주·입고 자료를 대조하고 차이와 예외를 검토한다.",
+      requirements: "차이가 나는 행에는 원본 위치와 다음 확인 사항을 명시한다.",
+      cadence: "manual",
+      defaultInput: "",
+      steps: [
+        {
+          id: "recall",
+          kind: "recall",
+          title: "확정 기준 확인",
+          content: "발주 입고 보류",
+        },
+        {
+          id: "compare",
+          kind: "reconcile",
+          title: "수량 대조",
+          content: '{"excludeHeld":true,"toleranceUnits":0}',
+        },
+        {
+          id: "review",
+          kind: "review",
+          title: "차이와 예외 검토",
+          content: "원본 위치와 차이를 대조하고 확인한다.",
+        },
+      ],
+    });
+    setView("workflows");
+  }
   function addMemory(m?: Memory) {
     setReplacement(m || null);
     setMemoryForm(
@@ -285,6 +367,7 @@ function App() {
             source: m.source,
             kind: m.kind,
             layer: m.layer || "core",
+            claimKey: m.claimKey || "",
           }
         : {
             title: "",
@@ -292,11 +375,12 @@ function App() {
             source: "사용자 직접 입력",
             kind: "fact",
             layer: "core",
+            claimKey: "",
           },
     );
     setModal("memory");
   }
-  const connectionPrompt = `Dingdong 플러그인을 사용해 내 업무를 설정해줘. 먼저 project_list로 프로젝트를 확인하고 ${project ? `프로젝트 ${project.name} (${project.id})의 context_get을 호출해줘.` : "내 요청에 맞는 프로젝트를 만들어줘."}\n${brief || "앞으로 반복할 업무의 목적, 입력 자료, 절차, 검토 기준을 함께 정리하자."}\n확인한 기준은 출처와 함께 기억하고, workflow_save로 실행 가능한 설계를 저장해줘. 자료와 지침은 분리해줘. 실행 후 run_get으로 실제 결과를 확인하고, 내 피드백은 개선 후보로 남겨줘.`;
+  const connectionPrompt = `Dingdong 플러그인으로 업무를 설정해줘. 먼저 project_list로 공유된 프로젝트를 확인하고 ${project ? `프로젝트 ${project.name} (${project.id})의 context_get을 호출해줘.` : "허용된 프로젝트를 선택해줘."}\n${brief || "업무의 목적, 자료, 절차와 검토 기준을 정리하자."}\n기억은 출처와 규칙 키를 갖춘 후보로 제안하고, workflow_propose로 설계 변경안을 제출해줘. 소유자 검토 화면을 안내해줘. 적용된 자동화는 같은 입력으로 work_context_get을 조회한 뒤 contextId와 함께 시험 실행해줘. run_get으로 상태를 확인하고, 허용되면 artifact_get으로 근거를 읽어줘. 승인·예약·기억 확정은 소유자 화면에서 처리해.`;
   const messages = (
     <>
       {error && (
@@ -441,9 +525,10 @@ function App() {
             [
               ["home", "워크스페이스", "01"],
               ["memories", "기억 보관함", "02"],
-              ["workflows", "자동화 빌더", "03"],
-              ["runs", "실행과 개선", "04"],
-              ["connection", "dots 연결", "05"],
+              ["governance", "업무 기준과 검토", "03"],
+              ["workflows", "자동화 빌더", "04"],
+              ["runs", "실행과 개선", "05"],
+              ["connection", "dots 연결", "06"],
             ] as const
           ).map(([v, label, number]) => (
             <button
@@ -486,7 +571,7 @@ function App() {
           >
             로그아웃
           </button>
-          <span className="fine">DINGDONG / 0.1.0</span>
+          <span className="fine">DINGDONG / 0.2.0</span>
         </div>
       </aside>
       <div className="main-shell">
@@ -692,6 +777,17 @@ function App() {
                   + 기억 남기기
                 </button>
               </div>
+              {data.conflicts.some((c) => c.projectId === projectId) && (
+                <div className="message error" role="alert">
+                  충돌한 확정 기억은 사용 중 목록과 실행 기준에서 제외했습니다.{" "}
+                  <button
+                    className="text-link"
+                    onClick={() => setView("governance")}
+                  >
+                    근거를 비교하고 해결하기
+                  </button>
+                </div>
+              )}
               <div className="filterbar">
                 <div className="segmented" aria-label="기억 상태">
                   {[
@@ -819,6 +915,22 @@ function App() {
               )}
             </>
           )}
+          {view === "governance" &&
+            (project ? (
+              <WorkGovernance
+                key={project.id}
+                project={project}
+                instructions={data.instructions}
+                proposals={data.proposals}
+                conflicts={data.conflicts}
+                act={act}
+                busy={busy}
+              />
+            ) : (
+              <Empty title="프로젝트를 먼저 만들어주세요">
+                업무별 지침과 제안을 같은 곳에서 검토합니다.
+              </Empty>
+            ))}
           {view === "workflows" && (
             <>
               <div className="page-title">
@@ -829,13 +941,22 @@ function App() {
                     dots가 설계한 업무를 검토 가능한 단계로 만듭니다.
                   </p>
                 </div>
-                <button
-                  className="primary"
-                  disabled={!projectId}
-                  onClick={createDraft}
-                >
-                  + 새 자동화
-                </button>
+                <div className="button-row">
+                  <button
+                    className="secondary"
+                    disabled={!projectId}
+                    onClick={createReconciliationDraft}
+                  >
+                    발주·입고 대조 만들기
+                  </button>
+                  <button
+                    className="primary"
+                    disabled={!projectId}
+                    onClick={createDraft}
+                  >
+                    + 새 자동화
+                  </button>
+                </div>
               </div>
               <div className={`builder-layout ${draft ? "has-editor" : ""}`}>
                 <section className="workflow-list">
@@ -880,7 +1001,7 @@ function App() {
                     <div className="section-line">
                       <h2>
                         {selectedWorkflow
-                          ? `설계 편집 · v${selectedWorkflow.revision}`
+                          ? `설계 편집 · v${draftRevision}`
                           : "새 자동화 초안"}
                       </h2>
                       <button
@@ -902,7 +1023,7 @@ function App() {
                             ...(selectedWorkflow
                               ? {
                                   id: selectedWorkflow.id,
-                                  revision: selectedWorkflow.revision,
+                                  revision: draftRevision,
                                 }
                               : {}),
                             workflow: { ...draft, projectId },
@@ -912,6 +1033,18 @@ function App() {
                         if (w) edit(w);
                       }}
                     >
+                      {selectedWorkflow &&
+                        draftRevision !== selectedWorkflow.revision && (
+                          <p className="message error" role="alert">
+                            다른 곳에서 설계가 변경됐습니다. 목록에서 현재
+                            버전을 다시 열어 비교해주세요.
+                          </p>
+                        )}
+                      <p className="fine">
+                        저장할 때 이 프로젝트에 연결한 공통 지침 버전을
+                        고정합니다. 실행 중인 기준을 바꾸려면 새 버전으로
+                        저장하세요.
+                      </p>
                       <label>
                         업무 이름
                         <input
@@ -966,6 +1099,10 @@ function App() {
                                               ...x,
                                               kind: e.target
                                                 .value as Step["kind"],
+                                              content:
+                                                e.target.value === "reconcile"
+                                                  ? '{"excludeHeld":true,"toleranceUnits":0}'
+                                                  : x.content,
                                             }
                                           : x,
                                       ),
@@ -1034,7 +1171,9 @@ function App() {
                                 placeholder={
                                   s.kind === "recall"
                                     ? "찾을 주제 (비워두면 실행 자료로 검색)"
-                                    : "내용 또는 검토 기준"
+                                    : s.kind === "reconcile"
+                                      ? '{"excludeHeld":true,"toleranceUnits":0}'
+                                      : "내용 또는 검토 기준"
                                 }
                                 onChange={(e) =>
                                   setDraft({
@@ -1127,6 +1266,19 @@ function App() {
                             placeholder="정리할 원자료를 입력하세요"
                           />
                         </label>
+                        {selectedWorkflow.steps.some(
+                          (s) => s.kind === "reconcile",
+                        ) && (
+                          <details className="input-example">
+                            <summary>발주·입고 JSON 형식 보기</summary>
+                            <p className="fine">
+                              발주 행의 lineId는 고유해야 합니다. 같은 입고 행은
+                              수량을 합산합니다. 보류 제외·허용 차이는 단계의
+                              규칙 JSON으로 지정합니다.
+                            </p>
+                            <pre>{reconciliationExample}</pre>
+                          </details>
+                        )}
                         <div className="button-row">
                           <button
                             className="primary"
@@ -1236,6 +1388,39 @@ function App() {
                         {selectedRun.context.length}개 · 결과물{" "}
                         {selectedRun.artifacts.length}개
                       </p>
+                      {selectedRun.workContext && (
+                        <details className="execution-evidence">
+                          <summary>실행 기준과 입력 근거</summary>
+                          <p className="fine">
+                            맥락 ID: {selectedRun.workContext.id}
+                            <br />
+                            조회 시각: {date(selectedRun.workContext.createdAt)}
+                            <br />
+                            입력 SHA-256: {selectedRun.inputEvidence?.sha256}
+                            <br />
+                            입력 출처: {selectedRun.inputEvidence?.source}
+                          </p>
+                          {selectedRun.workContext.instructions.map((i) => (
+                            <div key={i.id}>
+                              <strong>
+                                {i.title} · v{i.revision}
+                              </strong>
+                              <p className="preserve-lines">{i.content}</p>
+                            </div>
+                          ))}
+                          {selectedRun.workContext.memories.map((m) => (
+                            <p key={m.id}>
+                              <strong>
+                                {m.title} · v{m.revision}
+                              </strong>
+                              <br />
+                              {m.content}
+                              <br />
+                              <small>출처: {m.source}</small>
+                            </p>
+                          ))}
+                        </details>
+                      )}
                       <ol className="run-steps">
                         {selectedRun.steps.map((s, i) => (
                           <li key={s.id}>
@@ -1270,6 +1455,9 @@ function App() {
                             </a>
                           </div>
                           <pre>{a.content}</pre>
+                          {a.sha256 && (
+                            <p className="fine">결과 SHA-256: {a.sha256}</p>
+                          )}
                         </article>
                       ))}
                       {selectedRun.status === "needs_review" && (
@@ -1286,7 +1474,11 @@ function App() {
                               onClick={() =>
                                 act(
                                   "run_review",
-                                  { id: selectedRun.id, decision: "approve" },
+                                  {
+                                    id: selectedRun.id,
+                                    decision: "approve",
+                                    reviewId: selectedRun.review?.id,
+                                  },
                                   "검토를 승인하고 다음 단계를 진행했습니다.",
                                 )
                               }
@@ -1483,6 +1675,12 @@ function App() {
                   </section>
                 </div>
               </div>
+              <Connections
+                connections={data.connections}
+                projects={projects}
+                act={act}
+                busy={busy}
+              />
               <section className="panel activity">
                 <h2>최근 연결 활동</h2>
                 {data.events
@@ -1557,6 +1755,7 @@ function App() {
                 "memory_write",
                 {
                   ...memoryForm,
+                  claimKey: memoryForm.claimKey.trim() || undefined,
                   projectId,
                   status: "confirmed",
                   ...(replacement
@@ -1643,6 +1842,21 @@ function App() {
                 required
               />
             </label>
+            <label>
+              규칙 키 (선택)
+              <input
+                value={memoryForm.claimKey}
+                onChange={(e) =>
+                  setMemoryForm({ ...memoryForm, claimKey: e.target.value })
+                }
+                maxLength={120}
+                placeholder="예: purchasing.hold_policy"
+              />
+            </label>
+            <p className="fine">
+              같은 규칙 키에 서로 다른 확정 내용이 있으면 충돌 검토를
+              요청합니다.
+            </p>
             <p className="fine">
               직접 확인한 기억으로 저장합니다.
               {replacement && " 이전 내용은 대체된 기억으로 보존됩니다."}

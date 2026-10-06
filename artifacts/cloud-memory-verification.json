@@ -1,0 +1,22 @@
+{
+  "at": "2026-10-06T03:53:23.216Z",
+  "deployment": "030db2c3-02e8-4167-8ab0-c570a9e418e4",
+  "implementationCommit": "c408bdc78d545180bfa4ca1b60cbcf4eab457afc",
+  "https": "https://dingdong-production-6648.up.railway.app",
+  "actualOpenClaw": "2026.9.7",
+  "ownerApiThroughGateway": true,
+  "retrievalMode": "sqlite-fts5",
+  "embeddings": false,
+  "legacyMemoryReadAsCore": true,
+  "sourceCitationReadback": true,
+  "contextBudgetVerified": true,
+  "preservedRecords": {
+    "projects": 1,
+    "memories": 1,
+    "workflows": 1,
+    "runs": 1,
+    "feedback": 0
+  },
+  "unchangedRecordHashes": true,
+  "personalDotsAccount": false
+}
